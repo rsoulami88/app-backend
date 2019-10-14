@@ -6,6 +6,7 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token
 from routes import *
 from utils.register_controls import *
+from utils.controls import *
 
 flask_app = Flask(__name__)  # Provide the app and the directory of the docs
 CORS(flask_app)
@@ -18,14 +19,9 @@ class Users(object):
         self.collection = collection
 
     def login(self, obj):
-        username = obj['username']
-        password = obj['password']
-        keys = list(obj.keys())
-        if 'username' not in keys:
-            return dumps({'success': False, 'error': 400})
-        elif 'password' not in keys:
-            return dumps({'success': False, 'error': 400})
-        else:
+        if find_in_request(obj, ["username", "password"]):
+            username = obj['username']
+            password = obj['password']
             user = list(self.collection.find({"username": username}))
             if len(user) > 0:
                 pswd = user[0]['password']
@@ -36,21 +32,12 @@ class Users(object):
                 else:
                     return dumps({'success': False, 'error': 401})
             else:
-                return dumps({'success': False, 'error': 404})
+                return dumps({'success': False, 'error': 409})
+        else:
+            return dumps({'success': False, 'error': 400})
 
     def register(self, obj):
-        keys = list(obj.keys())
-        if 'username' not in keys:
-            return dumps({'success': False, 'error': 400})
-        #elif 'email' not in keys:
-            #return dumps({'success': False, 'error': 400})
-        #elif 'phone' not in keys:
-            #return dumps({'success': False, 'error': 400})
-        elif 'name' not in keys:
-            return dumps({'success': False, 'error': 400})
-        elif 'password' not in keys:
-            return dumps({'success': False, 'error': 400})
-        elif 'conf_password' not in keys:
+        if not find_in_request(obj, ["username", "password", "conf_password", "name"]):
             return dumps({'success': False, 'error': 400})
         else:
             if obj["password"] != obj["conf_password"]:
@@ -63,8 +50,6 @@ class Users(object):
                     else:
                         dico = {"username": obj["username"],
                                 "name": obj["name"],
-                                #"phone": obj["phone"],
-                                #"email": obj["email"],
                                 "password": flask_bcrypt.generate_password_hash(obj["password"]).decode('utf-8')}
                         self.collection.insert_one(dico)
                         return dumps({'success': True})
